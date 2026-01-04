@@ -19,7 +19,7 @@
     "firebase": "^12.2.1",
     "framer-motion": "^12.23.22",
     "iconsax-react": "^0.0.8",
-    "next": "15.5.0",
+    "next": "16.1.1",
     "query-string": "^9.2.2",
     "react": "19.1.0",
     "react-dom": "19.1.0",
