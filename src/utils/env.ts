@@ -3,7 +3,7 @@ const ensureTrailingSlash = (value: string) =>
   value.endsWith('/') ? value : `${value}/`;
 
 export const gatewayOrigin = stripTrailingSlash(
-  process.env.NEXT_PUBLIC_GATEWAY_ORIGIN ?? 'http://localhost:5200'
+  process.env.NEXT_PUBLIC_GATEWAY_ORIGIN ?? 'https://be-vertex.onrender.com'
 );
 
 const apiBase = process.env.NEXT_PUBLIC_API_URL;
