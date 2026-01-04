@@ -1,0 +1,282 @@
+import React, { ReactNode, useEffect } from "react";
+import { IoMdClose } from "react-icons/io";
+// import { cn } from "@/lib/utils";
+export interface ModalProps {
+  open: boolean
+  onClose: () => void
+  children: ReactNode
+  className?: string
+  style?: React.CSSProperties
+  variant?: "dropdown" | "centered" | "sidebar" | "custom"|'top'
+  size?: "sm" | "md" | "lg" | "xl" | "full"
+  position?: "top-right" | "top-left" | "bottom-right" | "bottom-left" | "center" | "left" | "right"
+  showOverlay?: boolean
+  closeOnClickOutside?: boolean
+  showCloseButton?: boolean
+}
+
+const variantStyles = {
+  dropdown: "absolute bg-white rounded-lg shadow-xl border border-gray-200 z-50",
+  centered: "fixed inset-0 z-50 flex items-center justify-center",
+  sidebar: "fixed top-0 h-full bg-white z-50 transform transition-transform duration-300 ease-in-out overflow-y-auto",
+  custom: "",
+  top: "fixed inset-0 z-50 flex",
+}
+
+const sizeStyles = {
+  sm: "w-80",
+  md: "w-96", 
+  lg: "max-w-2xl w-full",
+  xl: "max-w-6xl w-full",
+  full: "w-full h-full"
+}
+
+const positionStyles = {
+  "top-right": "top-15 right-8 mt-2",
+  "top-left": "top-15 left-8 mt-2", 
+  "bottom-right": "bottom-8 right-8",
+  "bottom-left": "bottom-8 left-8",
+  "center": "top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2",
+  "left": "left-0",
+  "right": "right-0"
+}
+
+export function Modal({
+  open,
+  onClose,
+  children,
+  className,
+  style,
+  variant = "dropdown",
+  size = "md",
+  position = "top-right",
+  showOverlay = false,
+  closeOnClickOutside = true,
+  showCloseButton = false,
+  ...props
+}: ModalProps) {
+  // Custom click outside handler that ignores dropdown portals
+  const modalContentRef = React.useRef<HTMLDivElement>(null)
+
+  React.useEffect(() => {
+    if (!closeOnClickOutside || !open) return
+
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement
+
+      // If the click is inside the modal, do nothing.
+      if (modalContentRef.current?.contains(target)) {
+        return
+      }
+
+      // This is the crucial part: check if the clicked element is a portaled element
+      // directly under the body, which is a common pattern for dropdowns/popovers.
+      if (target.parentElement === document.body && target.hasAttribute('data-radix-popper-content-wrapper')) {
+        return
+      }
+
+      // A more general check for any element that might be a popover or a dropdown menu.
+      if (target.closest('[data-radix-popper-content-wrapper]')) {
+        return
+      }
+
+      onClose()
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [closeOnClickOutside, open, onClose])
+
+  // Handle ESC key press
+  useEffect(() => {
+    const handleEscapeKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && open) {
+        onClose()
+      }
+    }
+
+    if (open) {
+      document.addEventListener('keydown', handleEscapeKey)
+      // Prevent body scroll when modal is open
+      document.body.style.overflow = 'hidden'
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleEscapeKey)
+      document.body.style.overflow = 'unset'
+    }
+  }, [open, onClose])
+
+  if (!open) return null
+
+  // For centered modals, we need a different structure
+  if (variant === "centered") {
+    return (
+      <>
+        {showOverlay && (
+          <div className="fixed inset-0 bg-black/30 z-40 transition-opacity duration-300 w-screen h-screen" />
+        )}
+        <div className={variantStyles.centered}>
+          <div
+            ref={modalContentRef}
+            className={`relative bg-white rounded-lg shadow-xl mx-4 my-8 z-50 flex flex-col overflow-hidden ${sizeStyles[size]} ${ className}`}
+            style={{
+              maxHeight: "80vh",
+              ...style
+            }}
+            {...props}
+          >
+            {showCloseButton && (
+              <button
+                onClick={onClose}
+                className="absolute top-2 right-2 p-1 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 z-10"
+              >
+               <IoMdClose className="h-5 w-5" />
+              </button>
+            )}
+            {children}
+          </div>
+        </div>
+      </>
+    )
+  }
+  if ( variant === 'top') {
+    return (
+      <>
+        {showOverlay && (
+          <div className="fixed inset-0 bg-black/30 z-40 transition-opacity duration-300 w-screen h-screen" />
+        )}
+        <div className={variantStyles.top}>
+          <div
+            ref={modalContentRef}
+            className={`relative bg-white rounded-lg shadow-xl mx-4 my-8 z-50 flex flex-col overflow-hidden ${sizeStyles[size]} ${className}`}
+            style={{
+              maxHeight: "80vh",
+              ...style
+            }}
+            {...props}
+          >
+            {children}
+          </div>
+        </div>
+      </>
+    )
+  }
+  // For sidebar modals
+  if (variant === "sidebar") {
+    return (
+      <>
+        {showOverlay && (
+          <div className="fixed inset-0 bg-black/30 z-40 transition-opacity duration-300 w-screen h-screen" />
+        )}
+        <div
+          ref={modalContentRef}
+          className={`${variantStyles.sidebar} ${sizeStyles[size]} ${positionStyles[position]} ${className}`}
+          style={{
+            maxHeight: "100vh",
+            ...style
+          }}
+          {...props}
+        >
+          {showCloseButton && (
+            <button
+              onClick={onClose}
+              className="absolute top-2 right-2 p-1 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 z-10"
+            >
+             <IoMdClose className="h-5 w-5" />
+            </button>
+          )}
+          {children}
+        </div>
+      </>
+    )
+  }
+
+  // For dropdown and custom modals
+  return (
+    <>
+      {showOverlay && (
+        <div className="fixed inset-0 bg-black/30 z-40 transition-opacity duration-300 w-screen h-screen" />
+      )}
+      <div
+        ref={modalContentRef}
+        className={`${variant !== "custom" ? variantStyles[variant] : ""} ${variant !== "custom" ? sizeStyles[size] : ""} ${variant !== "custom" && position !== "center" ? positionStyles[position] : ""} flex flex-col ${className}`}
+        style={{
+          maxHeight: "80vh",
+          overflowY: "auto",
+          ...style
+        }}
+        {...props}
+      >
+        {showCloseButton && (
+          <button
+            onClick={onClose}
+            className="absolute top-2 right-2 p-1 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 z-10"
+          >
+           <IoMdClose className="h-5 w-5" />
+          </button>
+        )}
+        {children}
+      </div>
+    </>
+  )
+}
+
+// Convenience components for common modal parts
+export function ModalHeader({ 
+  children, 
+  className,
+  ...props 
+}: { 
+  children: ReactNode
+  className?: string
+} & React.HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div 
+      className={`p-4 py-3 border-b border-gray-200 flex items-center justify-between ${className}`}
+      {...props}
+    >
+      {children}
+    </div>
+  )
+}
+
+export function ModalBody({ 
+  children, 
+  className,
+  scrollable = true,
+  ...props 
+}: { 
+  children: ReactNode
+  className?: string
+  scrollable?: boolean
+} & React.HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div 
+      className={`p-4 flex-1 flex flex-col ${scrollable ? "overflow-y-auto" : ""} ${className} `}
+      {...props}
+    >
+      {children}
+    </div>
+  )
+}
+
+export function ModalFooter({ 
+  children, 
+  className,
+  sticky = false,
+  ...props 
+}: { 
+  children: ReactNode
+  className?: string
+  sticky?: boolean
+} & React.HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div 
+      className={`p-4 py-3 border-t border-gray-200 flex justify-center ${sticky ? "sticky bottom-0 bg-white" : ""} ${className}`}
+      {...props}
+    >
+      {children}
+    </div>
+  )
+}

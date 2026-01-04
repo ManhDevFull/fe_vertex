@@ -1,0 +1,859 @@
+cells:
+  - kind: 2
+    languageId: sql
+    value: "      ---- khi thêm bảng orderdetail\r
+
+      \r
+
+      \      DROP VIEW IF EXISTS V_Products_filter;\r
+
+      \r
+
+      \      CREATE OR REPLACE VIEW V_Products_filter AS\r
+
+      \r
+
+      \      WITH review_stats AS (\r
+
+      \r
+
+      \       SELECT \r
+
+      \r
+
+      \           v.product_id,\r
+
+      \r
+
+      \           SUM(r.rating) as sum_rating,\r
+
+      \r
+
+      \           COUNT(r.id) as count_review\r
+
+      \r
+
+      \        FROM variant v\r
+
+      \r
+
+      \        \r
+
+      \r
+
+      \          -- ===== PHẦN THAY ĐỔI BẮT ĐẦU TỪ ĐÂY =====\r
+
+      \r
+
+      \          -- Thêm bảng 'orderdetail' làm bảng trung gian\r
+
+      \r
+
+      \        INNER JOIN orderdetail od ON od._idVariant = v.id\r
+
+      \r
+
+      \          -- Nối 'orderdetail' với 'orders' qua order_id\r
+
+      \r
+
+      \        INNER JOIN orders o ON o.id = od._idOrder\r
+
+      \r
+
+      \          -- Bỏ dòng join cũ: INNER JOIN orders o ON o.variant_id =
+      v.id\r
+
+      \r
+
+      \          -- ===== PHẦN THAY ĐỔI KẾT THÚC TẠI ĐÂY =====\r
+
+      \r
+
+      \        \r
+
+      \r
+
+      \        INNER JOIN review r ON r.order_id = o.id\r
+
+      \r
+
+      \        WHERE v.isdeleted = false\r
+
+      \r
+
+      \        GROUP BY v.product_id\r
+
+      \r
+
+      \      ),\r
+
+      \r
+
+      \      variant_agg AS (\r
+
+      \r
+
+      \          -- PHẦN NÀY KHÔNG THAY ĐỔI\r
+
+      \r
+
+      \        SELECT \r
+
+      \r
+
+      \          v2.product_id,\r
+
+      \r
+
+      \          jsonb_agg(\r
+
+      \r
+
+      \            jsonb_build_object(\r
+
+      \r
+
+      \              'id', v2.id,\r
+
+      \r
+
+      \              'valuevariant', v2.valuevariant,\r
+
+      \r
+
+      \              'price', v2.price,\r
+
+      \r
+
+      \              'stock', v2.stock,\r
+
+      \r
+
+      \              'discounts', COALESCE(\r
+
+      \r
+
+      \                (\r
+
+      \r
+
+      \                  SELECT jsonb_agg(\r
+
+      \r
+
+      \                    jsonb_build_object(\r
+
+      \r
+
+      \                      'id', d.id,\r
+
+      \r
+
+      \                      'typediscount', d.typediscount,\r
+
+      \r
+
+      \                      'discount', d.discount,\r
+
+      \r
+
+      \                      'starttime', d.starttime,\r
+
+      \r
+
+      \                      'endtime', d.endtime\r
+
+      \r
+
+      \                    )\r
+
+      \r
+
+      \                  )\r
+
+      \r
+
+      \                  FROM discount_product ds\r
+
+      \r
+
+      \                  JOIN discount d ON ds.discount_id = d.id\r
+
+      \r
+
+      \                  WHERE ds.variant_id = v2.id\r
+
+      \r
+
+      \                ),\r
+
+      \r
+
+      \                '[]'::jsonb\r
+
+      \r
+
+      \              )\r
+
+      \r
+
+      \            )\r
+
+      \r
+
+      \          ) as variants\r
+
+      \r
+
+      \        FROM variant v2\r
+
+      \r
+
+      \        WHERE v2.isdeleted = false\r
+
+      \r
+
+      \        GROUP BY v2.product_id\r
+
+      \r
+
+      \      )\r
+
+      \r
+
+      \      -- Phần SELECT chính của VIEW (bạn chưa cung cấp, nhưng nó sẽ join
+      các CTE\r
+
+      \      --ở trên)\r
+
+      \r
+
+      \      -- VÍ DỤ:\r
+
+      \r
+
+      \      -- SELECT p.*, rs.sum_rating, rs.count_review, va.variants\r
+
+      \r
+
+      \      -- FROM product p\r
+
+      \r
+
+      \      -- LEFT JOIN review_stats rs ON p.id = rs.product_id\r
+
+      \r
+
+      \      -- LEFT JOIN variant_agg va ON p.id = va.product_id\r
+
+      \r
+
+      \      -- WHERE p.isdeleted = false;\r
+
+      \r
+
+      \      ------end\r
+
+      \r
+
+      \      \r
+
+      \r
+
+      \      \r
+
+      \r
+
+      \      ---- view đúng update vào ngày 10/11\r
+
+      \r
+
+      \      DROP VIEW IF EXISTS V_Products_filter;\r
+
+      \r
+
+      \      CREATE OR REPLACE VIEW V_Products_filter AS\r
+
+      \r
+
+      \      WITH review_stats AS (\r
+
+      \r
+
+      \      SELECT \r
+
+      \r
+
+      \       v.product_id,\r
+
+      \r
+
+      \       COALESCE(SUM(r.rating), 0) as sum_rating,\r
+
+      \r
+
+      \       COUNT(r.id) as count_review\r
+
+      \r
+
+      \      FROM variant v\r
+
+      \r
+
+      \      INNER JOIN orderdetail od ON v.id = od.variant_id\r
+
+      \r
+
+      \      INNER JOIN orders o on od.order_id = o.id\r
+
+      \r
+
+      \      LEFT JOIN review r ON o.id = r.order_id \r
+
+      \r
+
+      \      WHERE v.isdeleted = false\r
+
+      \r
+
+      \      GROUP BY v.product_id\r
+
+      \r
+
+      \      ),\r
+
+      \r
+
+      \      variant_agg AS (\r
+
+      \r
+
+      \      SELECT \r
+
+      \r
+
+      \       v2.product_id,\r
+
+      \r
+
+      \       jsonb_agg(\r
+
+      \r
+
+      \       jsonb_build_object(\r
+
+      \r
+
+      \        'id', v2.id,\r
+
+      \r
+
+      \        'valuevariant', v2.valuevariant,\r
+
+      \r
+
+      \        'price', v2.price,\r
+
+      \r
+
+      \        'stock', v2.stock,\r
+
+      \r
+
+      \        'discounts', COALESCE(\r
+
+      \r
+
+      \        (\r
+
+      \r
+
+      \         SELECT jsonb_agg(\r
+
+      \r
+
+      \         jsonb_build_object(\r
+
+      \r
+
+      \          'id', d.id,\r
+
+      \r
+
+      \          'typediscount', d.typediscount,\r
+
+      \r
+
+      \          'discount', d.discount,\r
+
+      \r
+
+      \          'starttime', d.starttime,\r
+
+      \r
+
+      \          'endtime', d.endtime\r
+
+      \r
+
+      \         )\r
+
+      \r
+
+      \         )\r
+
+      \r
+
+      \         FROM discount_product ds\r
+
+      \r
+
+      \         JOIN discount d ON ds.discount_id = d.id\r
+
+      \r
+
+      \         WHERE ds.variant_id = v2.id\r
+
+      \r
+
+      \        ),\r
+
+      \r
+
+      \        '[]'::jsonb\r
+
+      \r
+
+      \        )\r
+
+      \r
+
+      \       )\r
+
+      \r
+
+      \       ) as variants\r
+
+      \r
+
+      \      FROM variant v2\r
+
+      \r
+
+      \      WHERE v2.isdeleted = false\r
+
+      \r
+
+      \      GROUP BY v2.product_id\r
+
+      \r
+
+      \      )\r
+
+      \r
+
+      \      -- ===== PHẦN SELECT CUỐI ĐÃ ĐƯỢC CẬP NHẬT =====\r
+
+      \r
+
+      \      SELECT \r
+
+      \r
+
+      \        p.id,\r
+
+      \r
+
+      \        p.description,\r
+
+      \r
+
+      \          p.imageurls as imgUrls,\r
+
+      \r
+
+      \        p.nameproduct as name,\r
+
+      \r
+
+      \        c.id AS categoryId,\r
+
+      \r
+
+      \        c.namecategory as categoryName,\r
+
+      \r
+
+      \        b.name AS brand,\r
+
+      \r
+
+      \        COALESCE(rs.sum_rating, 0) as rating,\r
+
+      \r
+
+      \        COALESCE(rs.count_review, 0) as order,\r
+
+      \r
+
+      \        COALESCE(va.variants, '[]'::jsonb) as variant\r
+
+      \r
+
+      \      FROM product p\r
+
+      \r
+
+      \      -- Thêm JOIN để lấy category và brand\r
+
+      \r
+
+      \      LEFT JOIN category c ON p.category = c.id\r
+
+      \r
+
+      \      LEFT JOIN brand b ON p.brand_id = b.id -- (Giả định FK là
+      'brand_id', bạn\r
+
+      \      --hãy sửa lại nếu tên cột khác nhé)\r
+
+      \r
+
+      \      -- Join các CTE\r
+
+      \r
+
+      \      LEFT JOIN review_stats rs ON p.id = rs.product_id\r
+
+      \r
+
+      \      LEFT JOIN variant_agg va ON p.id = va.product_id\r
+
+      \r
+
+      \      WHERE p.isdeleted = false;\r
+
+      \r
+
+      \      \r
+
+      \r
+
+      \      --test\r
+
+      \r
+
+      \      SELECT \r
+
+      \r
+
+      \        r.id as review_id,\r
+
+      \r
+
+      \        r.rating,\r
+
+      \r
+
+      \        o.id as order_id,\r
+
+      \r
+
+      \          od._id as orderdetail_id, -- Thêm ID của orderdetail để dễ
+      test\r
+
+      \r
+
+      \        v.id as variant_id,\r
+
+      \r
+
+      \        v.valuevariant,\r
+
+      \r
+
+      \        p.id as product_id,\r
+
+      \r
+
+      \        p.nameproduct\r
+
+      \r
+
+      \      FROM review r\r
+
+      \r
+
+      \      INNER JOIN orders o ON r.order_id = o.id\r
+
+      \r
+
+      \      -- Sửa lại luồng join cho đúng:\r
+
+      \r
+
+      \      INNER JOIN orderdetail od ON o.id = od.\"_idOrder\"  -- Nối orders
+      ->\r
+
+      \      orderdetail\r
+
+      \r
+
+      \      INNER JOIN variant v ON od.\"_idVariant\" = v.id      -- Nối
+      orderdetail\r
+
+      \      -> variant\r
+
+      \r
+
+      \      --\r
+
+      \r
+
+      \      INNER JOIN product p ON v.product_id = p.id\r
+
+      \r
+
+      \      WHERE v.isdeleted = false\r
+
+      \r
+
+      \      ORDER BY p.id, r.idr\r
+
+      \r
+
+      \  {\r
+
+      \    \"id\": 1,\r
+
+      \    \"price\": 25000,\r
+
+      \    \"stock\": 10,\r
+
+      \    \"discounts\": [\r
+
+      \      {\r
+
+      \        \"id\": 1,\r
+
+      \        \"endtime\": \"2025-10-25T02:54:57.36542\",\r
+
+      \        \"discount\": 10,\r
+
+      \        \"starttime\": \"2025-09-25T02:54:57.36542\",\r
+
+      \        \"typediscount\": 1\r
+
+      \      }\r
+
+      \    ],\r
+
+      \    \"valuevariant\": {\r
+
+      \      \"color\": \"black\",\r
+
+      \      \"storage\": \"128GB\"\r
+
+      \    }\r
+
+      \  },\r
+
+      SELECT *\r
+
+      FROM v_products_filter\r
+
+      WHERE EXISTS (\r
+
+      \    SELECT 1\r
+
+      \    FROM jsonb_array_elements(variant::jsonb -> 'discounts') d\r
+
+      );\r
+
+      \r
+
+      -- lấy ra 4 sản phẩm có ít nhất 1 discont trong variant\r
+
+      SELECT *\r
+
+      FROM v_products_filter v\r
+
+      WHERE EXISTS (\r
+
+      \    SELECT 1\r
+
+      \    FROM jsonb_array_elements(v.variant) AS var(variant)\r
+
+      \    JOIN LATERAL jsonb_array_elements(var.variant->'discounts') AS
+      d(discount) ON TRUE\r
+
+      \    -- WHERE (d.discount->>'endtime')::timestamp > NOW()\r
+
+      )\r
+
+      LIMIT 4;\r
+
+      \  SELECT *\r
+
+      \              FROM v_products_filter v\r
+
+      \              WHERE EXISTS (\r
+
+      \                  SELECT 1\r
+
+      \                  FROM jsonb_array_elements(v.variant) AS var(variant)\r
+
+      \                  JOIN LATERAL
+      jsonb_array_elements(var.variant->'discounts') AS d(discount) ON TRUE\r
+
+      \                  WHERE (d.discount->>'endtime')::timestamp > NOW()\r
+
+      \              )\r
+
+      \              LIMIT 4;\r
+
+      SELECT * FROM v_products_filter\r
+
+      ORDER BY \"order\" DESC\r
+
+      LIMIT 1\r
+
+      select * from category WHERE parent_id = 1\r
+
+      SELECT * from v_products_filter\r
+
+      WHERE categoryid in (1, 2)\r
+
+      LIMIT 12\r
+
+      select * from discount\r
+
+      \r
+
+      \r
+
+      \r
+
+      [\r
+
+      \  {\r
+
+      \    \"id\": 1,\r
+
+      \    \"price\": 25000,\r
+
+      \    \"stock\": 10,\r
+
+      \    \"discounts\": [\r
+
+      \      {\r
+
+      \        \"id\": 1,\r
+
+      \        \"endtime\": \"2025-10-25T02:54:57.36542\",\r
+
+      \        \"discount\": 10,\r
+
+      \        \"starttime\": \"2025-09-25T02:54:57.36542\",\r
+
+      \        \"typediscount\": 1\r
+
+      \      }\r
+
+      \    ],\r
+
+      \    \"valuevariant\": {\r
+
+      \      \"color\": \"black\",\r
+
+      \      \"storage\": \"128GB\"\r
+
+      \    }\r
+
+      \  },\r
+
+      \  {\r
+
+      \    \"id\": 2,\r
+
+      \    \"price\": 30000,\r
+
+      \    \"stock\": 8,\r
+
+      \    \"discounts\": [\r
+
+      \      {\r
+
+      \        \"id\": 1,\r
+
+      \        \"endtime\": \"2025-10-25T02:54:57.36542\",\r
+
+      \        \"discount\": 10,\r
+
+      \        \"starttime\": \"2025-09-25T02:54:57.36542\",\r
+
+      \        \"typediscount\": 1\r
+
+      \      }\r
+
+      \    ],\r
+
+      \    \"valuevariant\": {\r
+
+      \      \"color\": \"white\",\r
+
+      \      \"storage\": \"256GB\"\r
+
+      \    }\r
+
+      \  },\r
+
+      \  {\r
+
+      \    \"id\": 41,\r
+
+      \    \"price\": 78235,\r
+
+      \    \"stock\": 22,\r
+
+      \    \"discounts\": [],\r
+
+      \    \"valuevariant\": {\r
+
+      \      \"color\": \"blue\",\r
+
+      \      \"storage\": \"256GB\"\r
+
+      \    }\r
+
+      \  },\r
+
+      \  {\r
+
+      \    \"id\": 4261,\r
+
+      \    \"price\": 84300,\r
+
+      \    \"stock\": 31,\r
+
+      \    \"discounts\": [],\r
+
+      \    \"valuevariant\": {\r
+
+      \      \"color\": \"blue\",\r
+
+      \      \"storage\": \"256GB\"\r
+
+      \    }\r
+
+      \  }\r
+
+      ]"
+    metadata: {}
+metadata:
+  conn:
+    id: NdJLO6EvalcuueweM8D90
+    name: hieudeptry
+  database: ecommerce1
+  schema: public
