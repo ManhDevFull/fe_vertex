@@ -16,7 +16,7 @@ export type ChartConfig = Record<
 
 type ChartContainerProps = {
   config: ChartConfig;
-  children: React.ReactNode;
+  children: React.ReactElement;
   className?: string;
 };
 
