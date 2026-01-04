@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type ChangeEvent } from "react";
+import { useRef, useState, type ChangeEvent, type ReactNode } from "react";
 import { useDispatch } from "react-redux";
 import { CiCamera } from "react-icons/ci";
 import { FiHeart, FiLogOut, FiMapPin, FiPackage, FiUser } from "react-icons/fi";
@@ -26,7 +26,7 @@ type MenuItem = {
   id: AccountMenuId;
   label: string;
   description: string;
-  icon: JSX.Element;
+  icon: ReactNode;
 };
 
 const menuItems: MenuItem[] = [
